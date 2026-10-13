@@ -1,187 +1,113 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useProfileStore } from "@/stores/useProfileStore";
 import { MajorCard } from "@/components/analysis/MajorCard";
 import { RadarComparison } from "@/components/analysis/RadarComparison";
 import { SkillBreakdown } from "@/components/analysis/SkillBreakdown";
-import { Sparkles, ArrowRight, Loader2, GitBranch, Cpu } from "lucide-react";
+import { ApiService } from "@/services/api";
+import { MOCK_SKILL_GAP_ANALYSIS } from "@/services/mockData";
+import { Sparkles, ArrowRight, Loader2, GitBranch } from "lucide-react";
 
 export default function ResultPage() {
   const router = useRouter();
   const {
     analysisResult,
     selectedMajor,
-    isAnalyzing,
+    profile,
     isGeneratingRoadmap,
+    setAnalysisResult,
     setSelectedMajor,
-    calculateMatchAction,
-    generateRoadmapAction,
-    loadAndSyncAllDataAction,
-    hasHydrated,
-    profile
+    setRoadmap,
+    setGeneratingRoadmap,
   } = useProfileStore();
 
-  const [isInitialSyncing, setIsInitialSyncing] = useState(true);
-
-  // Tự động kiểm tra nạp và đồng bộ dữ liệu từ CSDL SQLite bền vững, ngăn reset khi F5
+  // Tự động nạp dữ liệu mẫu nếu người dùng truy cập trực tiếp trang /result
   useEffect(() => {
-    if (!hasHydrated) return;
+    if (!analysisResult) {
+      setAnalysisResult(MOCK_SKILL_GAP_ANALYSIS);
+    }
+  }, [analysisResult, setAnalysisResult]);
 
-    let isMounted = true;
-    const studentId = profile?.student_id || "SV-2025001";
-
-    const syncData = async () => {
-      try {
-        // Chỉ nạp từ CSDL nếu chưa có kết quả phân tích trong bộ nhớ Zustand
-        if (!analysisResult) {
-          const hasDbData = await loadAndSyncAllDataAction(studentId);
-          if (!hasDbData && !isAnalyzing) {
-            await calculateMatchAction();
-          }
-        }
-      } catch (err) {
-        console.error("Lỗi đồng bộ dữ liệu:", err);
-      } finally {
-        if (isMounted) {
-          setIsInitialSyncing(false);
-        }
-      }
-    };
-
-    syncData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [hasHydrated, profile, loadAndSyncAllDataAction, calculateMatchAction]);
+  const currentResult = analysisResult || MOCK_SKILL_GAP_ANALYSIS;
+  const currentMajor = selectedMajor || currentResult.top_recommendations[0];
 
   const handleGenerateRoadmap = async () => {
-    if (!selectedMajor && !analysisResult?.top_matches?.[0]) return;
+    if (!currentMajor) return;
+    setGeneratingRoadmap(true);
     try {
-      await generateRoadmapAction(4);
+      const gpa = profile?.cumulative_gpa || 3.42;
+      const res = await ApiService.generateRoadmap(
+        currentMajor.major_name,
+        currentMajor.skill_gap.missing_skills,
+        gpa
+      );
+      setRoadmap(res);
       router.push("/roadmap");
-    } catch (err) {
-      console.error("Lỗi khi sinh lộ trình RAG LLM:", err);
+    } catch {
+      console.error("Failed to generate roadmap");
+    } finally {
+      setGeneratingRoadmap(false);
     }
   };
-
-  if (isInitialSyncing || !hasHydrated || isAnalyzing || !analysisResult) {
-    return (
-      <div className="min-h-[55vh] flex flex-col items-center justify-center p-6 text-center space-y-5">
-        <div className="relative">
-          <div className="w-20 h-20 rounded-3xl bg-indigo-50 dark:bg-indigo-600/10 border-2 border-indigo-500/30 flex items-center justify-center shadow-lg shadow-indigo-500/20 animate-pulse">
-            <Cpu className="w-10 h-10 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <Loader2 className="w-8 h-8 text-cyan-500 absolute -top-2 -right-2 animate-spin" />
-        </div>
-        <div className="space-y-2 max-w-md">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-            Đang Đồng Bộ Kết Quả & Năng Lực Từ CSDL
-          </h3>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400">
-            Hệ thống đang truy xuất dữ liệu lưu trữ bền vững và hòa trộn tiến độ lộ trình học tập cá nhân hóa...
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const currentResult = analysisResult;
-  const recommendations = currentResult.top_matches || currentResult.top_recommendations || [];
-  const currentMajor = selectedMajor || recommendations[0];
-
-  if (recommendations.length === 0 || !currentMajor) {
-    return (
-      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500">
-          <Sparkles className="w-8 h-8" />
-        </div>
-        <div className="space-y-1 max-w-md">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white">
-            Chưa có dữ liệu phân tích chuyên ngành
-          </h3>
-          <p className="text-xs text-slate-600 dark:text-slate-400">
-            Hồ sơ học tập hoặc bài khảo sát của bạn đang được cập nhật. Vui lòng nhấn nút bên dưới để hệ thống tính toán ngay.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => calculateMatchAction()}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md transition-all"
-          >
-            Tính toán lại ngay
-          </button>
-          <button
-            type="button"
-            onClick={() => router.push("/upload")}
-            className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"
-          >
-            Làm bài khảo sát
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-8 py-4">
       {/* Page Header */}
       <div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-50 border border-cyan-200 text-cyan-700 dark:bg-cyan-600/10 dark:border-cyan-500/20 dark:text-cyan-400 text-xs font-semibold mb-2">
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-600/10 border border-cyan-500/20 text-cyan-400 text-xs font-semibold mb-2">
           <Sparkles className="w-3.5 h-3.5" />
           <span>Bước 2 / 3: Kết quả Định lượng & Radar Chart</span>
         </div>
-        <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
           Báo cáo Khoảng cách Kỹ năng (Skill Gap Analysis)
         </h2>
-        <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 mt-1">
-          Hệ thống xếp hạng các chuyên ngành đào tạo phù hợp dựa trên điểm số Cosine Similarity và đối chiếu 6 trục năng lực.
+        <p className="text-xs sm:text-sm text-slate-400 mt-1">
+          Hệ thống xếp hạng Top 3 ngành nghề phù hợp nhất dựa trên điểm số Cosine Similarity và đối chiếu 6 trục năng lực.
         </p>
       </div>
 
-      {/* Grid: Danh sách các ngành + Radar Chart */}
+      {/* Grid: Top 3 Cards + Radar Chart */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Cột trái: Danh sách các chuyên ngành đào tạo (5 cols) */}
+        {/* Cột trái: Danh sách Top 3 ngành nghề (5 cols) */}
         <div className="lg:col-span-5 space-y-3">
-          <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 uppercase tracking-wider block">
-            Bảng Xếp hạng Các Chuyên ngành Đào tạo:
+          <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
+            Top 3 Chuyên ngành Phù hợp Nhất:
           </span>
-          {recommendations.map((major) => (
+          {currentResult.top_recommendations.map((major) => (
             <MajorCard
               key={major.rank}
               major={major}
-              isSelected={currentMajor?.major_name === major.major_name}
+              isSelected={currentMajor.major_name === major.major_name}
               onSelect={(m) => setSelectedMajor(m)}
             />
           ))}
         </div>
 
         {/* Cột phải: Biểu đồ Radar đa tầng của ngành đang chọn (7 cols) */}
-        <div className="lg:col-span-7 p-6 rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-sm">
+        <div className="lg:col-span-7 p-6 rounded-2xl glass-panel border border-slate-800 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-3 mb-1">
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white tracking-tight">
+              <h3 className="text-sm font-bold text-white tracking-tight">
                 Biểu đồ Radar Năng lực:{" "}
-                <span className="text-indigo-600 dark:text-indigo-400">{currentMajor?.major_name}</span>
+                <span className="text-indigo-400">{currentMajor.major_name}</span>
               </h3>
-              <span className="px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30 text-xs font-mono font-bold">
-                {currentMajor?.match_percentage || currentMajor?.match_score}% Match
+              <span className="px-2.5 py-0.5 rounded-full bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 text-xs font-mono font-bold">
+                {currentMajor.match_score}% Match
               </span>
             </div>
-            <p className="text-xs text-slate-600 dark:text-slate-400">
+            <p className="text-xs text-slate-400">
               Đối chiếu 2 lớp: Năng lực hiện tại (Xanh Indigo) so với Chuẩn ngành yêu cầu (Viền Cam).
             </p>
           </div>
 
           <RadarComparison
-            data={currentMajor?.radar_data || currentResult.radar_chart_data || []}
-            majorName={currentMajor?.major_name || "Chuyên ngành"}
+            data={currentMajor.radar_data}
+            majorName={currentMajor.major_name}
           />
 
-          <div className="text-[11px] text-center text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-800/80 pt-3">
+          <div className="text-[11px] text-center text-slate-500 border-t border-slate-800/80 pt-3">
             Tọa độ 6 trục được chuẩn hóa theo thang điểm 10 toán học.
           </div>
         </div>
@@ -190,9 +116,9 @@ export default function ResultPage() {
       {/* Phân rã 3 nhóm kỹ năng */}
       <div className="space-y-3">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider block">
-          Phân rã Kỹ năng của {currentMajor?.major_name}:
+          Phân rã Kỹ năng của {currentMajor.major_name}:
         </span>
-        <SkillBreakdown skillGap={currentMajor?.skill_gap || currentResult.skill_breakdown} />
+        <SkillBreakdown skillGap={currentMajor.skill_gap} />
       </div>
 
       {/* CTA Button: Sinh lộ trình học tập với AI */}

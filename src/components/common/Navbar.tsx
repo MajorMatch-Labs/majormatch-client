@@ -10,51 +10,18 @@ import {
   GitFork,
   MessageSquare,
   ShieldCheck,
-  Github,
-  Sun,
-  Moon,
-  User,
-  LogOut
+  Github
 } from "lucide-react";
 import { ApiService } from "@/services/api";
 import { HealthCheckResponse } from "@/types/api";
-import { useAuthStore } from "@/stores/useAuthStore";
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
   const [health, setHealth] = useState<HealthCheckResponse | null>(null);
-  const [isDark, setIsDark] = useState<boolean>(true);
-  const { user, isAuthenticated, openAuthModal, logout, checkAuthSession } = useAuthStore();
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
   useEffect(() => {
-    const updateHealth = () => {
-      ApiService.checkHealth().then(setHealth);
-    };
-    updateHealth();
-    checkAuthSession();
-    const isDarkTheme = document.documentElement.classList.contains("dark");
-    setIsDark(isDarkTheme);
-
-    const intervalId = setInterval(updateHealth, 15000);
-    return () => clearInterval(intervalId);
-  }, [checkAuthSession]);
-
-  const isHpcOnline =
-    health?.private_compute_node &&
-    (health.private_compute_node as any).status !== "offline";
-
-  const toggleTheme = () => {
-    const nextDark = !isDark;
-    setIsDark(nextDark);
-    if (nextDark) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("majormatch-theme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("majormatch-theme", "light");
-    }
-  };
+    ApiService.checkHealth().then(setHealth);
+  }, []);
 
   const navLinks = [
     { href: "/", label: "Trang chủ", icon: Compass },
@@ -65,7 +32,7 @@ export const Navbar: React.FC = () => {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full glass-panel border-b border-slate-200/90 dark:border-slate-800/80 backdrop-blur-md">
+    <header className="sticky top-0 z-50 w-full glass-panel border-b border-slate-800/80 backdrop-blur-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
@@ -73,10 +40,10 @@ export const Navbar: React.FC = () => {
             <Compass className="w-5 h-5 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
+            <span className="text-lg font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-indigo-200">
               MajorMatch
             </span>
-            <span className="text-[10px] uppercase font-semibold tracking-wider text-indigo-600 dark:text-indigo-400 -mt-1">
+            <span className="text-[10px] uppercase font-semibold tracking-wider text-indigo-400 -mt-1">
               AI Skill Advisor Web 2.0
             </span>
           </div>
@@ -93,128 +60,35 @@ export const Navbar: React.FC = () => {
                 href={item.href}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-medium transition-all duration-150 ${
                   isActive
-                    ? "bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-sm dark:bg-indigo-600/20 dark:text-indigo-300 dark:border-indigo-500/30"
-                    : "text-slate-600 hover:text-slate-950 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-slate-100 dark:hover:bg-slate-800/50"
+                    ? "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30 shadow-sm"
+                    : "text-slate-400 hover:text-slate-100 hover:bg-slate-800/50"
                 }`}
               >
-                <Icon className={`w-4 h-4 ${isActive ? "text-indigo-600 dark:text-indigo-400" : "text-slate-500"}`} />
+                <Icon className={`w-4 h-4 ${isActive ? "text-indigo-400" : "text-slate-500"}`} />
                 {item.label}
               </Link>
             );
           })}
         </nav>
 
-        {/* Right Section: Node Status, Theme & Auth */}
-        <div className="flex items-center gap-2.5">
+        {/* Right Section: Node Status & Github */}
+        <div className="flex items-center gap-3">
           {health && (
-            <div
-              className={`hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] border transition-all ${
-                isHpcOnline
-                  ? "bg-slate-100 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800"
-                  : "bg-amber-500/10 border-amber-500/30 text-amber-800 dark:text-amber-300"
-              }`}
-              title={
-                isHpcOnline
-                  ? "Private HPC GPU Node đang kết nối và sẵn sàng xử lý tác vụ AI nặng."
-                  : "Private HPC GPU Node đang ngoại tuyến. Hệ thống đang bảo toàn và phục vụ 100% dữ liệu từ AWS Cloud DB."
-              }
-            >
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-[11px]">
               <span className="relative flex h-2 w-2">
-                {isHpcOnline ? (
-                  <>
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </>
-                ) : (
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-                )}
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="font-medium text-slate-700 dark:text-slate-300">
-                HPC Node
-              </span>
-              <span
-                className={`font-mono text-[10px] font-semibold ${
-                  isHpcOnline
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-amber-600 dark:text-amber-400"
-                }`}
-              >
-                {isHpcOnline ? "Ready" : "Offline (Cloud DB)"}
-              </span>
+              <span className="text-slate-300 font-medium">HPC Private Node</span>
+              <span className="text-emerald-400 font-mono text-[10px]">Ready</span>
             </div>
-          )}
-
-          {/* Theme Toggle Button */}
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-all border border-slate-200 dark:border-slate-800"
-            title={isDark ? "Chuyển sang chế độ Sáng (Light mode)" : "Chuyển sang chế độ Tối (Dark mode)"}
-            aria-label="Toggle Theme"
-          >
-            {isDark ? (
-              <Sun className="w-4 h-4 text-amber-400 animate-in spin-in-90 duration-200" />
-            ) : (
-              <Moon className="w-4 h-4 text-indigo-600 animate-in spin-in-90 duration-200" />
-            )}
-          </button>
-
-          {/* User Account / Login Button */}
-          {isAuthenticated && user ? (
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowProfileMenu(!showProfileMenu)}
-                className="flex items-center gap-2 p-1.5 pr-3 rounded-full bg-slate-100 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 transition-all"
-              >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-indigo-600 to-cyan-500 flex items-center justify-center text-white text-[11px] font-bold">
-                  {user.name.charAt(0)}
-                </div>
-                <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 hidden sm:inline">
-                  {user.name.split(" ").slice(-1)[0]}
-                </span>
-              </button>
-
-              {showProfileMenu && (
-                <div className="absolute right-0 mt-2 w-56 rounded-2xl glass-panel border border-slate-200 dark:border-slate-800 shadow-xl p-3 bg-white dark:bg-slate-900 animate-in fade-in zoom-in-95 duration-150 z-50">
-                  <div className="px-2 py-1.5 border-b border-slate-200 dark:border-slate-800">
-                    <p className="text-xs font-bold text-slate-900 dark:text-white">{user.name}</p>
-                    <p className="text-[10px] text-slate-500 font-mono">MSSV: {user.studentId}</p>
-                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium truncate mt-0.5">
-                      {user.major}
-                    </p>
-                  </div>
-                  <div className="pt-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowProfileMenu(false);
-                        logout();
-                      }}
-                      className="w-full flex items-center gap-2 px-2.5 py-2 rounded-xl text-xs text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Đăng xuất</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => openAuthModal("login")}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-md shadow-indigo-600/25 transition-all"
-            >
-              <User className="w-3.5 h-3.5" />
-              <span>Đăng nhập</span>
-            </button>
           )}
 
           <a
-            href="https://github.com/MajorMatch-Labs/MajorMatch"
+            href="https://github.com/MajorMatch-Labs/majormatch-client"
             target="_blank"
             rel="noopener noreferrer"
-            className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800/80 transition-colors border border-slate-200 dark:border-slate-800"
+            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors border border-slate-800"
             title="GitHub Repository"
           >
             <Github className="w-4 h-4" />

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo } from "react";
+import React from "react";
 import {
   Radar,
   RadarChart,
@@ -9,86 +9,71 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer,
   Tooltip,
-  Legend,
+  Legend
 } from "recharts";
 import { RadarAxisItem } from "@/types/api";
-import { useRadarMetrics } from "@/modules/analytics/hooks/useRadarMetrics";
-import { RadarTooltip } from "@/modules/analytics/components/RadarTooltip";
-import {
-  RADAR_ANIMATION_CONFIG,
-  RADAR_THEME_TOKENS,
-} from "@/modules/analytics/constants/radarConfig";
 
 interface RadarComparisonProps {
   data: RadarAxisItem[];
   majorName: string;
 }
 
-const BaseRadarComparison: React.FC<RadarComparisonProps> = ({ data, majorName }) => {
-  // Toi uu hoa memoization qua custom hook useRadarMetrics
-  const { transformedData, hasValidData } = useRadarMetrics(data);
-
-  if (!hasValidData || transformedData.length === 0) {
-    return (
-      <div className="w-full h-[360px] flex items-center justify-center text-slate-500 text-xs italic">
-        Chưa có dữ liệu trục năng lực cho chuyên ngành {majorName}
-      </div>
-    );
-  }
+export const RadarComparison: React.FC<RadarComparisonProps> = ({ data, majorName }) => {
+  // Chuẩn hóa dữ liệu cho Recharts
+  const chartData = data.map((item) => ({
+    axis: item.axis,
+    "Năng lực hiện tại": item.user_score,
+    "Chuẩn ngành yêu cầu": item.benchmark_score,
+    fullMark: 10,
+  }));
 
   return (
     <div className="w-full h-[360px] flex flex-col items-center justify-center">
       <ResponsiveContainer width="100%" height="100%">
-        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={transformedData}>
-          <PolarGrid
-            stroke={RADAR_THEME_TOKENS.AXIS_GRID.STROKE_COLOR}
-            strokeDasharray="3 3"
-          />
+        <RadarChart cx="50%" cy="50%" outerRadius="75%" data={chartData}>
+          <PolarGrid stroke="rgba(255, 255, 255, 0.1)" strokeDasharray="3 3" />
           <PolarAngleAxis
             dataKey="axis"
-            tick={{
-              fill: RADAR_THEME_TOKENS.AXIS_GRID.TEXT_COLOR,
-              fontSize: RADAR_THEME_TOKENS.AXIS_GRID.FONT_SIZE,
-              fontWeight: 500,
-            }}
+            tick={{ fill: "#94a3b8", fontSize: 11, fontWeight: 500 }}
           />
           <PolarRadiusAxis
             angle={30}
             domain={[0, 10]}
-            stroke={RADAR_THEME_TOKENS.AXIS_GRID.TICK_LINE_COLOR}
+            stroke="rgba(255, 255, 255, 0.2)"
             tick={{ fill: "#64748b", fontSize: 9 }}
           />
 
           {/* Lớp 1: Chuẩn ngành yêu cầu */}
           <Radar
-            name={RADAR_THEME_TOKENS.BENCHMARK_SERIES.NAME}
+            name="Chuẩn ngành yêu cầu"
             dataKey="Chuẩn ngành yêu cầu"
-            stroke={RADAR_THEME_TOKENS.BENCHMARK_SERIES.STROKE_COLOR}
-            strokeWidth={RADAR_THEME_TOKENS.BENCHMARK_SERIES.STROKE_WIDTH}
+            stroke="#f59e0b"
+            strokeWidth={1.5}
             strokeDasharray="4 4"
-            fill={RADAR_THEME_TOKENS.BENCHMARK_SERIES.FILL_COLOR}
-            fillOpacity={RADAR_THEME_TOKENS.BENCHMARK_SERIES.FILL_OPACITY}
-            isAnimationActive={RADAR_ANIMATION_CONFIG.IS_ANIMATION_ACTIVE}
-            animationDuration={RADAR_ANIMATION_CONFIG.ANIMATION_DURATION_MS}
-            animationEasing={RADAR_ANIMATION_CONFIG.ANIMATION_EASING}
+            fill="#f59e0b"
+            fillOpacity={0.12}
           />
 
           {/* Lớp 2: Năng lực sinh viên hiện tại */}
           <Radar
-            name={RADAR_THEME_TOKENS.USER_SERIES.NAME}
-            dataKey="Năng lực sinh viên hiện tại"
-            stroke={RADAR_THEME_TOKENS.USER_SERIES.STROKE_COLOR}
-            strokeWidth={RADAR_THEME_TOKENS.USER_SERIES.STROKE_WIDTH}
-            fill={RADAR_THEME_TOKENS.USER_SERIES.FILL_COLOR}
-            fillOpacity={RADAR_THEME_TOKENS.USER_SERIES.FILL_OPACITY}
-            isAnimationActive={RADAR_ANIMATION_CONFIG.IS_ANIMATION_ACTIVE}
-            animationDuration={RADAR_ANIMATION_CONFIG.ANIMATION_DURATION_MS}
-            animationEasing={RADAR_ANIMATION_CONFIG.ANIMATION_EASING}
+            name="Năng lực sinh viên hiện tại"
+            dataKey="Năng lực hiện tại"
+            stroke="#6366f1"
+            strokeWidth={2.5}
+            fill="#6366f1"
+            fillOpacity={0.35}
           />
 
-          {/* Tooltip tùy chỉnh giàu tính tương tác */}
-          <Tooltip content={<RadarTooltip />} />
-
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "rgba(15, 23, 42, 0.9)",
+              border: "1px solid rgba(255, 255, 255, 0.1)",
+              borderRadius: "12px",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+              color: "#fff",
+              fontSize: "12px",
+            }}
+          />
           <Legend
             wrapperStyle={{
               paddingTop: "12px",
@@ -100,27 +85,3 @@ const BaseRadarComparison: React.FC<RadarComparisonProps> = ({ data, majorName }
     </div>
   );
 };
-
-/**
- * Custom Props Comparator cho React.memo:
- * Chống re-render thừa nếu danh sách trục và tên ngành không thay đổi
- */
-function areRadarPropsEqual(
-  prevProps: RadarComparisonProps,
-  nextProps: RadarComparisonProps
-): boolean {
-  if (prevProps.majorName !== nextProps.majorName) return false;
-  if (prevProps.data === nextProps.data) return true;
-  if (prevProps.data.length !== nextProps.data.length) return false;
-
-  return prevProps.data.every((item, idx) => {
-    const nextItem = nextProps.data[idx];
-    return (
-      item.axis_name === nextItem.axis_name &&
-      item.user_score === nextItem.user_score &&
-      item.benchmark_score === nextItem.benchmark_score
-    );
-  });
-}
-
-export const RadarComparison = memo(BaseRadarComparison, areRadarPropsEqual);
